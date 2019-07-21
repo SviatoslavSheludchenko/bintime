@@ -24,6 +24,12 @@ $config = [
             'identityClass' => 'app\models\User',
             'enableAutoLogin' => true,
         ],
+        'formatter' => [
+            'class' => 'yii\i18n\Formatter',
+            'dateFormat' => 'long',
+            'datetimeFormat' => 'long',
+            'timeZone' => 'Europe/Kiev'
+        ],
         'errorHandler' => [
             'errorAction' => 'site/error',
         ],
@@ -49,7 +55,10 @@ $config = [
             'showScriptName' => false,
             'rules' => [
                 '' => 'site/index',
-                '<action>' => 'site/<action>',
+//                '<action>' => 'site/<action>',
+                '<controller:[\w-]+>/page/<page:\d+>' => '<controller>/index',
+                '<controller:[\w-]+>/<action:[\w-]+>/<id:[\w-]+>' => '<controller>/<action>',
+                '<controller:[\w-]+>/<action:[\w-]+>' => '<controller>/<action>',
             ],
         ],
     ],

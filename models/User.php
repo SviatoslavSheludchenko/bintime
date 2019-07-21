@@ -2,103 +2,109 @@
 
 namespace app\models;
 
-class User extends \yii\base\BaseObject implements \yii\web\IdentityInterface
-{
-    public $id;
-    public $username;
-    public $password;
-    public $authKey;
-    public $accessToken;
+use DateTime;
+use Yii;
+use yii\db\ActiveRecord;
 
-    private static $users = [
-        '100' => [
-            'id' => '100',
-            'username' => 'admin',
-            'password' => 'admin',
-            'authKey' => 'test100key',
-            'accessToken' => '100-token',
-        ],
-        '101' => [
-            'id' => '101',
-            'username' => 'demo',
-            'password' => 'demo',
-            'authKey' => 'test101key',
-            'accessToken' => '101-token',
-        ],
-    ];
+/**
+ * @property int $id
+ * @property string $login
+ * @property string $password
+ * @property string $first_name
+ * @property string $last_name
+ * @property int $gender
+ * @property string $date
+ * @property string $email
+ */
+class User extends ActiveRecord {
 
+    const GENDER_FEMALE = 'female';
+    const GENDER_MALE = 'male';
+    const GENDER_UNKNOWN = 'unknown';
 
-    /**
-     * {@inheritdoc}
-     */
-    public static function findIdentity($id)
+    public static function tableName()
     {
-        return isset(self::$users[$id]) ? new static(self::$users[$id]) : null;
+        return 'user';
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public static function findIdentityByAccessToken($token, $type = null)
+    public function rules()
     {
-        foreach (self::$users as $user) {
-            if ($user['accessToken'] === $token) {
-                return new static($user);
-            }
+        return [
+            [['login', 'password', 'first_name', 'last_name', 'gender', 'email'], 'required'],
+            [['login'], 'string', 'min' => 4, 'max' => 20],
+            [['password'], 'string', 'min' => 6, 'max' => 20],
+            [['first_name', 'last_name', 'email'], 'string', 'max' => 30],
+            [['gender'], 'string', 'max' => 15],
+            [['date'], 'safe'],
+            [['login', 'password'], 'string', 'max' => 20],
+            [['login'], 'unique'],
+            [['email'], 'unique'],
+        ];
+    }
+
+    public function attributeLabels()
+    {
+        return [
+            'id' => 'ID',
+            'login' => 'Login',
+            'password' => 'Password',
+            'first_name' => 'First Name',
+            'last_name' => 'Last Name',
+            'gender' => 'Gender',
+            'date' => 'Date',
+            'email' => 'Email',
+        ];
+    }
+
+    public function beforeSave($insert)
+    {
+
+        parent::beforeSave($insert);
+
+        if ($this->isNewRecord) {
+            $this->date = Yii::$app->formatter->asDate(new DateTime(), 'yyyy-MM-dd HH:mm:ss');
+            $this->first_name = self::ucfirst($this->first_name, $e = 'utf-8');
+            $this->last_name = self::ucfirst($this->last_name, $e = 'utf-8');
         }
-
-        return null;
+        return true;
     }
 
-    /**
-     * Finds user by username
-     *
-     * @param string $username
-     * @return static|null
-     */
-    public static function findByUsername($username)
+    public static function ucfirst($string, $e = 'utf-8')
     {
-        foreach (self::$users as $user) {
-            if (strcasecmp($user['username'], $username) === 0) {
-                return new static($user);
-            }
+        if (function_exists('mb_strtoupper') && function_exists('mb_substr') && !empty($string)) {
+            $string = mb_strtolower($string, $e);
+            $upper = mb_strtoupper($string, $e);
+            preg_match('#(.)#us', $upper, $matches);
+            $string = $matches[1] . mb_substr($string, 1, mb_strlen($string, $e), $e);
+        } else {
+            $string = ucfirst($string);
         }
-
-        return null;
+        return $string;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getId()
+    public static function listGenders()
     {
-        return $this->id;
+        return [
+            self::GENDER_UNKNOWN => Yii::t('app', 'No Information'),
+            self::GENDER_FEMALE => Yii::t('app', 'Female'),
+            self::GENDER_MALE => Yii::t('app', 'Male'),
+        ];
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getAuthKey()
+    public function getUserAddresses()
     {
-        return $this->authKey;
+        return $this->hasMany(Address::className(), ['user_id' => 'id']);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function validateAuthKey($authKey)
+    public function beforeDelete()
     {
-        return $this->authKey === $authKey;
+
+        $addresses = $this->userAddresses;
+        foreach ($addresses as $address) {
+            $address->delete();
+        }
+        // call the parent implementation so that this event is raise properly
+        return parent::beforeDelete();
     }
 
-    /**
-     * Validates password
-     *
-     * @param string $password password to validate
-     * @return bool if password provided is valid for current user
-     */
-    public function validatePassword($password)
-    {
-        return $this->password === $password;
-    }
 }
